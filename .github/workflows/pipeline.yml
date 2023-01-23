@@ -33,9 +33,35 @@ jobs:
           push: true
           tags: ${{env.ACRNAME}}.azurecr.io/website/website:${{github.run_number}}
         
+  CD:
+    runs-on: ubuntu-lates
+    needs: CI
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v2
         
-        
-        
+      - name: Azure kubernetes set context
+        uses: actions/checkout@v2
+        with:
+          creds: ${{secrets.AZURE_CRED}}
+          resource-group: rg-testing
+          cluster-name: handsonaks
+          
+      - name: Helm upgrade
+        run: |
+          helm upgrade website Chapter15/website --install \
+            --set image.repository=$ACRNAME.azurecr.io/website/website \
+            --set image.tag=${{ github.run_number }}
+
+      - name: Get service IP
+        run: |
+          PUBLICIP=""
+          while [ -z $PUBLICIP ]; do
+            echo "Waiting for public IP..."
+            PUBLICIP=$(kubectl get service website -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+            [ -z "$PUBLICIP" ] && sleep 10
+          done
+          echo $PUBLICIP
         
         
         
